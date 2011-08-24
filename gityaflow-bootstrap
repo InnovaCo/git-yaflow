@@ -15,9 +15,10 @@ _set_version() {
 }
 
 _check_update() {
-	local last_update="$(_git_wrapper config --local gitflow.lastUpdate)"
-	local update_interval="$(_git_wrapper config --local gitflow.updateInterval)"
-	local next_update=$(expr $last_update + $update_interval)
+	local last_update="$(_git_wrapper config --local gityaflow.lastUpdate)"
+	local update_interval="$(_git_wrapper config --local gityaflow.updateInterval)"
+	local next_update="$(expr $last_update + $update_interval)"
+
 	if [ "$(date +%s)" -ge "$next_update" ]; then
 		echo "update time!"
 		_make_update

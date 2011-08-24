@@ -46,7 +46,7 @@ _install() {
 	echo "Initing home in $GITFLOW_DIR"
 	git clone --recursive -q "$GITFLOW_REPO" "$GITFLOW_DIR"
 	_git_wrapper config --local --int gityaflow.updateInterval 86400
-	_git_wrapper config --local alias.fl "yaflow"
+	_git_wrapper config --global alias.fl "yaflow"
 	. $GITFLOW_DIR/gityaflow-bootstrap
 	_make_update
 	echo "Mkay"
