@@ -1,0 +1,6 @@
+# Yet another flow tool (for git).
+
+## Installation
+
+It is as simple as that:
+curl https://raw.github.com/innsand/git-yaflow/master/git-yaflow > ~/bin/git-yaflow && chmod a+x ~/bin/git-yaflow
