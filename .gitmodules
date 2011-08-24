@@ -1,0 +1,6 @@
+[submodule "shFlags"]
+	path = shFlags
+	url = git://github.com/innsand/shFlags.git
+[submodule "contrib/completion"]
+	path = contrib/completion
+	url = git://github.com/innsand/git-yaflow-completion.git

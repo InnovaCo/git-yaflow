@@ -1,0 +1,137 @@
+require_git_repo
+require_gitflow_initialized
+gitflow_load_settings
+VERSION_PREFIX=$(eval "echo `git config --get gitflow.prefix.versiontag`")
+NONMASTER_VERSION_PREFIX=$(git config --get gitflow.prefix.versiontagnonmaster)
+VERSION_REGEX=$(git config --get gitflow.version.regex)
+
+usage() {
+	echo "usage: git flow tag [version] [-v] [-m=<custom commit message>] [-s] [-u=<signing key>] [-p=<0|1>]"
+}
+
+cmd_default() {
+	cmd_make "$@"
+}
+
+cmd_list() {
+	DEFINE_boolean verbose false 'verbose (more) output' v
+	parse_args "$@"
+
+	local tag
+	for tag in $(git tag | grep "$TAG_REGEX"); do
+		if flag verbose; then
+			git show $tag --format=oneline
+		else
+			echo $tag
+		fi
+	done
+}
+
+cmd_help() {
+	usage
+	exit 0
+}
+
+parse_args() {
+	# parse options
+	FLAGS "$@" || exit $?
+	eval set -- "${FLAGS_ARGV}"
+
+	# read arguments into global variables
+	VERSION=$1
+}
+
+get_version_prefix() {
+	if [ "$(git_current_branch)" = "master" ]; then
+		echo $VERSION_PREFIX
+	else
+		echo $NONMASTER_VERSION_PREFIX
+	fi
+}
+
+prepare_version() {
+	if [ "$VERSION" = "" ]; then
+		local VERSION_PREFIX=$(get_version_prefix)
+		local prefix_rel=$(git config --get gitflow.prefix.release)
+		VERSION=$(git_current_branch | grep -P "^$prefix_rel" | sed -e "s/^$prefix_rel//" )
+		if [ "$VERSION" = "" ]; then
+			local default_suggestion=$(git describe --tags --abbrev=0 2>/dev/null | grep -P "^$VERSION_PREFIX" | sed -e "s/^$VERSION_PREFIX//" | sed -r 's/\.[0-9]+$//' | grep -P "$VERSION_REGEX")
+			local answer
+			printf "Version? [$default_suggestion] "
+			read answer
+			VERSION=${answer:-$default_suggestion}
+		fi
+	fi
+
+	echo "$VERSION" | grep -qP "$VERSION_REGEX" || \
+		die "Wrong <version> specified"
+}
+
+cmd_make() {
+	DEFINE_boolean sign false "sign the release tag cryptographically" s
+	DEFINE_string signingkey "" "use the given GPG-key for the digital signature (implies -s)" u
+	DEFINE_string message "" "use the given tag message" m
+	DEFINE_boolean push true "push tag to $ORIGIN after performing finish" p
+	parse_args "$@"
+
+	# handle flags that imply other flags
+	if [ "$FLAGS_signingkey" != "" ]; then
+		FLAGS_sign=$FLAGS_TRUE
+	fi
+
+	# sanity checks
+	local branch
+	branch=$(git_current_branch)
+#	require_clean_working_tree
+
+	if [ "$ORIGIN" != "" ]; then
+		git fetch --tags -q "$ORIGIN" || \
+			die "Could not fetch tags from $ORIGIN."
+	fi
+
+	prepare_version
+
+	local VERSION_PREFIX=$(get_version_prefix)
+	local serial=$(git tag -l $VERSION_PREFIX$VERSION.* | sort -nr | head -n1 | sed -e "s/^$VERSION_PREFIX$VERSION\.//")
+	serial=$(($serial+1))
+	local tagname="$VERSION_PREFIX$VERSION.$serial"
+
+	# try to tag the release
+	# in case a previous attempt to finish this release branch has failed,
+	# but the tag was set successful, we skip it now
+	if ! (git_tag_exists "$tagname"); then
+		local opts="-a"
+		flag sign && opts="$opts -s"
+		local message=""
+		[ "$FLAGS_signingkey" != "" ] && opts="$opts -u '$FLAGS_signingkey'"
+		if [ "$FLAGS_message" != "" ]; then
+			message="$FLAGS_message"
+		else
+			local prevtag=$(git describe --tags --abbrev=0 2>/dev/null)
+			local loglimits=""
+			if [ "$prevtag" = "" ]; then
+				loglimits="--full-history"
+			else
+				loglimits="$prevtag..HEAD"
+			fi
+			message=$(git log --format=format:"%B" $loglimits)
+		fi
+		opts="$opts -m '$message'"
+
+		echo $opts | xargs git tag "$tagname" || \
+			die "Tagging failed. Please run finish again to retry."
+	fi
+
+	if flag push; then
+		git push -q "$ORIGIN" "refs/tags/$tagname" || \
+			die "Could not push tag $tagname to $ORIGIN."
+	fi
+
+	echo
+	echo "Summary of actions:"
+	echo "- The tag '$tagname' was created"
+	if flag push; then
+		echo "- tag '$tagname' have been pushed to '$ORIGIN'"
+	fi
+	echo
+}
