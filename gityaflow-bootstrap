@@ -1,0 +1,45 @@
+#!/bin/sh
+
+export GITFLOW_REPO=${GITFLOW_REPO:-"git://github.com/innsand/git-yaflow.git"}
+
+_make_update() {
+	_git_wrapper pull
+	_git_wrapper submodule update
+	_set_version
+	_git_wrapper config --local --int gityaflow.lastUpdate "$(date +%s)"
+}
+
+_set_version() {
+	local version="$(_git_wrapper describe --always)"
+	sed "s/#VERSION#/${version}/" $GITFLOW_DIR/git-flow-version.in > $GITFLOW_DIR/git-flow-version
+}
+
+_check_update() {
+	local last_update="$(_git_wrapper config --local gitflow.lastUpdate)"
+	local update_interval="$(_git_wrapper config --local gitflow.updateInterval)"
+	local next_update=$(expr $last_update + $update_interval)
+	if [ "$(date +%s)" -ge "$next_update" ]; then
+		echo "update time!"
+		_make_update
+	fi
+}
+
+bootstrap_usage_subcommands() {
+	echo "   init      Initialize a new git repo with support for the branching model."
+	echo "   feature   Manage your feature branches."
+	echo "   release   Manage your release branches."
+	echo "   hotfix    Manage your hotfix branches."
+	echo "   tag       Make tag."
+	echo "   version   Shows version information."
+}
+
+bootstrap_preinit() {
+	return 0
+}
+bootstrap_preaction() {
+	return 0
+}
+
+bootstrap_postaction() {
+	return 0
+}

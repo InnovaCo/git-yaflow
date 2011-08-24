@@ -1,14 +1,5 @@
 #!/bin/sh
 #
-# git-flow -- A collection of Git extensions to provide high-level
-# repository operations for Vincent Driessen's branching model.
-#
-# Original blog post presenting this model is found at:
-#    http://nvie.com/git-model
-#
-# Feel free to contribute to this project at:
-#    http://github.com/nvie/gitflow
-#
 # Copyright 2010 Vincent Driessen. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -42,68 +33,51 @@ if [ "$DEBUG" = "yes" ]; then
 	set -x
 fi
 
-export GITFLOW_REPO="git://github.com/innsand/git-yaflow.git"
-export GITFLOW_DIR="$HOME/.gitflow"
+export GITFLOW_DIR="$HOME/.gityaflow"
 
-git_wrapper() {
+_git_wrapper() {
 	cd $GITFLOW_DIR
 	git $*
 	cd $OLDPWD
 	return $?
 }
 
-init() {
-	echo "Initing gitflow home in $GITFLOW_DIR"
+_install() {
+	echo "Initing home in $GITFLOW_DIR"
 	git clone --recursive -q "$GITFLOW_REPO" "$GITFLOW_DIR"
-	git_wrapper config --local --int gitflow.updateInterval 86400
-	make_update
+	_git_wrapper config --local --int gityaflow.updateInterval 86400
+	_git_wrapper config --local alias.fl "yaflow"
+	. $GITFLOW_DIR/gityaflow-bootstrap
+	_make_update
 	echo "Mkay"
 }
 
-make_update() {
-	git_wrapper pull
-	git_wrapper submodule update
-
-	version="$(git_wrapper describe --always)"
-	sed "s/#VERSION#/${version}/" $GITFLOW_DIR/git-flow-version.in > $GITFLOW_DIR/git-flow-version
-	git_wrapper config --local --int gitflow.lastUpdate "$(date +%s)"
-}
-
-check_update() {
-	local last_update="$(git_wrapper config --local gitflow.lastUpdate)"
-	local update_interval="$(git_wrapper config --local gitflow.updateInterval)"
-	local next_update=$(expr $last_update + $update_interval)
-	if [ "$(date +%s)" -ge "$next_update" ]; then
-		echo "update time!"
-		make_update
-	fi
-}
-
 usage() {
-	echo "usage: git flow <subcommand>"
+	echo "usage: git yaflow <subcommand>"
 	echo
 	echo "Available subcommands are:"
-	echo "   init      Initialize a new git repo with support for the branching model."
-	echo "   feature   Manage your feature branches."
-	echo "   release   Manage your release branches."
-	echo "   hotfix    Manage your hotfix branches."
-	echo "   tag       Make tag."
-	echo "   version   Shows version information."
+	bootstrap_usage_subcommands
 	echo
-	echo "Try 'git flow <subcommand> help' for details."
+	echo "Try 'git yaflow <subcommand> help' for details."
 }
 
 main() {
+	# installing or update check
+	if [ ! -d "$GITFLOW_DIR" ] ; then
+		_install
+	else
+		. $GITFLOW_DIR/gityaflow-bootstrap
+		_check_update
+	fi
+
+	# args check
 	if [ $# -lt 1 ]; then
 		usage
 		exit 1
 	fi
 
-	if [ ! -d "$GITFLOW_DIR" ] ; then
-		init
-	else
-		check_update
-	fi
+	# before loading parsers and main code.
+	bootstrap_preinit
 
 	# load common functionality
 	. "$GITFLOW_DIR/gitflow-common"
@@ -114,8 +88,8 @@ main() {
 	export POSIXLY_CORRECT=1
 
 	# use the shFlags project to parse the command line arguments
-	. "$GITFLOW_DIR/gitflow-shFlags"
-	FLAGS_PARENT="git flow"
+	. "$GITFLOW_DIR/shFlags/src/shflags"
+	FLAGS_PARENT="git yaflow"
 	FLAGS "$@" || exit $?
 	eval set -- "${FLAGS_ARGV}"
 
@@ -129,7 +103,7 @@ main() {
 
 	# run command
 	. "$GITFLOW_DIR/git-flow-$SUBCOMMAND"
-	FLAGS_PARENT="git flow $SUBCOMMAND"
+	FLAGS_PARENT="git yaflow $SUBCOMMAND"
 
 	# test if the first argument is a flag (i.e. starts with '-')
 	# in that case, we interpret this arg as a flag for the default
@@ -144,8 +118,10 @@ main() {
 		exit 1
 	fi
 
+	bootstrap_preaction
 	# run the specified action
 	cmd_$SUBACTION "$@"
+	bootstrap_postaction
 }
 
 main "$@"
