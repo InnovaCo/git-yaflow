@@ -1,7 +1,5 @@
 #!/bin/sh
 
-export GITFLOW_REPO=${GITFLOW_REPO:-"git://github.com/innsand/git-yaflow.git"}
-
 _make_update() {
 	_git_wrapper pull
 	_git_wrapper submodule update
