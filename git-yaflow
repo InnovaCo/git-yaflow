@@ -34,6 +34,7 @@ if [ "$DEBUG" = "yes" ]; then
 fi
 
 export GITFLOW_DIR="$HOME/.gityaflow"
+export GITFLOW_REPO=${GITFLOW_REPO:-"git://github.com/innsand/git-yaflow.git"}
 
 _git_wrapper() {
 	cd $GITFLOW_DIR
